@@ -52,4 +52,12 @@ n=8
 # 高度
 h=260
 
+data = [
+    (181, 217.5, 120, 50, 240, 5),  # Shape 1 parameters
+    (177.5, 140, 0, 140, 240, 2),  # Shape 2 parameters
+    (180, 220, 30, 110, 230, 5) # Shape 3 parameters
+]
+
+
+
 draw(a,b,c,d,h,n)

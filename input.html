@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数化数据录入与生成 (支持浮点数)</title>
+    <style>
+        /* --- 全局与布局 --- */
+        :root {
+            --primary-color: #4a90e2;
+            --primary-hover-color: #357abd;
+            --secondary-color: #f4f7f6;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --bg-color: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --danger-color: #dc3545;
+            --danger-hover-color: #c82333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--secondary-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        .panel {
+            background-color: var(--bg-color);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .panel:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .table-container {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-container {
+            flex: 1;
+            position: sticky;
+            top: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+        }
+
+        /* --- 表格样式 --- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            border: 1px solid var(--border-color);
+            padding: 12px 15px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .data-table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #e8f4ff;
+        }
+
+        .data-table td input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            text-align: center;
+            font-size: inherit;
+        }
+
+        /* --- 表单样式 --- */
+        .data-form .form-group {
+            margin-bottom: 18px;
+        }
+
+        .data-form label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .data-form input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .data-form input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+
+        /* --- 按钮样式 --- */
+        .btn {
+            width: 100%;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover-color);
+        }
+
+        #generateBtn {
+             background-color: #28a745;
+        }
+
+        #generateBtn:hover {
+            background-color: #218838;
+        }
+
+        .btn-delete {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-delete:hover {
+            background-color: var(--danger-hover-color);
+        }
+
+        /* --- 输出区域样式 --- */
+        #output-container {
+            margin-top: 20px;
+        }
+
+        #output {
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 50px;
+            font-family: "Courier New", Courier, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 左侧表格区域 -->
+        <div class="panel table-container">
+            <h2>数据列表 (点击单元格可修改)</h2>
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th>步高</th>
+                        <th>步宽</th>
+                        <th>右边多余</th>
+                        <th>左边多余</th>
+                        <th>板宽</th>
+                        <th>端点数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <button class="btn" id="generateBtn">生成二维数组</button>
+            <div id="output-container">
+                <h3>生成结果:</h3>
+                <pre id="output"></pre>
+            </div>
+        </div>
+
+        <!-- 右侧表单区域 -->
+        <div class="panel form-container">
+            <h2>添加新数据</h2>
+            <form id="dataForm" class="data-form">
+                <div class="form-group">
+                    <label for="stepHeight">步高</label>
+                    <!-- 修改: 添加 step="any" 以支持浮点数 -->
+                    <input type="number" id="stepHeight" step="any" required>
+                </div>
+                <div class="form-group">
+                    <label for="stepWidth">步宽</label>
+                    <!-- 修改: 添加 step="any" 以支持浮点数 -->
+                    <input type="number" id="stepWidth" step="any" required>
+                </div>
+                <div class="form-group">
+                    <label for="marginRight">右边多余</label>
+                    <!-- 修改: 添加 step="any" 以支持浮点数 -->
+                    <input type="number" id="marginRight" step="any" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="marginLeft">左边多余</label>
+                    <!-- 修改: 添加 step="any" 以支持浮点数 -->
+                    <input type="number" id="marginLeft" step="any" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="boardWidth">板宽</label>
+                    <!-- 修改: 添加 step="any" 以支持浮点数 -->
+                    <input type="number" id="boardWidth" step="any" required>
+                </div>
+                <div class="form-group">
+                    <label for="endpoints">端点数 (整数)</label>
+                    <!-- 保持 step="1" 以便输入整数 -->
+                    <input type="number" id="endpoints" required step="1" pattern="\d+">
+                </div>
+                <button type="submit" class="btn">添加</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const dataForm = document.getElementById('dataForm');
+            const tableBody = document.getElementById('tableBody');
+            const generateBtn = document.getElementById('generateBtn');
+            const outputArea = document.getElementById('output');
+
+            const inputs = {
+                stepHeight: document.getElementById('stepHeight'),
+                stepWidth: document.getElementById('stepWidth'),
+                marginRight: document.getElementById('marginRight'),
+                marginLeft: document.getElementById('marginLeft'),
+                boardWidth: document.getElementById('boardWidth'),
+                endpoints: document.getElementById('endpoints')
+            };
+
+            const addRow = (rowData) => {
+                const newRow = document.createElement('tr');
+
+                rowData.forEach(data => {
+                    const cell = document.createElement('td');
+                    cell.textContent = data;
+                    newRow.appendChild(cell);
+                });
+
+                const actionCell = document.createElement('td');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.className = 'btn-delete';
+                actionCell.appendChild(deleteBtn);
+                newRow.appendChild(actionCell);
+
+                tableBody.appendChild(newRow);
+            };
+
+            dataForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const endpointsValue = parseFloat(inputs.endpoints.value);
+                if (!Number.isInteger(endpointsValue)) {
+                    alert('“端点数”必须是一个整数。');
+                    inputs.endpoints.focus();
+                    return;
+                }
+
+                const rowData = [
+                    parseFloat(inputs.stepHeight.value),
+                    parseFloat(inputs.stepWidth.value),
+                    parseFloat(inputs.marginRight.value),
+                    parseFloat(inputs.marginLeft.value),
+                    parseFloat(inputs.boardWidth.value),
+                    parseInt(inputs.endpoints.value, 10)
+                ];
+
+                if (rowData.some(v => isNaN(v))) {
+                    alert('请填写所有字段，并确保它们是有效的数字。');
+                    return;
+                }
+
+                addRow(rowData);
+                dataForm.reset();
+                inputs.stepHeight.focus();
+                outputArea.textContent = '';
+            });
+
+            tableBody.addEventListener('click', (e) => {
+                const target = e.target;
+
+                if (target.classList.contains('btn-delete')) {
+                    if (confirm('您确定要删除这一行吗？')) {
+                        target.closest('tr').remove();
+                        outputArea.textContent = '';
+                    }
+                    return;
+                }
+
+                if (target.tagName === 'TD' && !target.querySelector('input')) {
+                    const cell = target;
+                    const colIndex = cell.cellIndex;
+                    const isEndpointColumn = colIndex === 5;
+
+                    if (colIndex >= (cell.parentNode.cells.length - 1)) return;
+
+                    const originalValue = cell.textContent;
+
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.value = originalValue;
+
+                    // 修改: 动态设置 step 属性
+                    if (isEndpointColumn) {
+                        input.step = "1"; // 整数列
+                    } else {
+                        input.step = "any"; // 浮点数列
+                    }
+
+                    cell.textContent = '';
+                    cell.appendChild(input);
+                    input.focus();
+                    input.select();
+
+                    const saveChanges = () => {
+                        const newValue = input.value;
+                        let parsedValue;
+
+                        if (isEndpointColumn) {
+                            parsedValue = parseFloat(newValue);
+                            if (!Number.isInteger(parsedValue)) {
+                                alert('“端点数”必须是一个整数。');
+                                cell.textContent = originalValue;
+                                return;
+                            }
+                            cell.textContent = parseInt(parsedValue, 10);
+                        } else {
+                            parsedValue = parseFloat(newValue);
+                            if (isNaN(parsedValue)) {
+                                alert('请输入有效的数字。');
+                                cell.textContent = originalValue;
+                                return;
+                            }
+                            cell.textContent = parsedValue;
+                        }
+                    };
+
+                    input.addEventListener('blur', saveChanges);
+                    input.addEventListener('keydown', (keyEvent) => {
+                        if (keyEvent.key === 'Enter') {
+                            saveChanges();
+                        } else if (keyEvent.key === 'Escape') {
+                            cell.textContent = originalValue;
+                        }
+                    });
+                }
+            });
+
+            generateBtn.addEventListener('click', () => {
+                const allRows = tableBody.querySelectorAll('tr');
+                if (allRows.length === 0) {
+                    outputArea.textContent = '表格中没有数据可供生成。';
+                    return;
+                }
+
+                const result = [];
+                allRows.forEach(row => {
+                    const rowData = [];
+                    const cells = row.querySelectorAll('td');
+                    for (let i = 0; i < cells.length - 1; i++) {
+                        const cellText = cells[i].textContent;
+                        if (i === 5) { // 端点数 (整数)
+                            rowData.push(parseInt(cellText, 10));
+                        } else { // 其他 (浮点数)
+                            rowData.push(parseFloat(cellText));
+                        }
+                    }
+                    result.push(rowData);
+                });
+
+                outputArea.textContent = JSON.stringify(result, null, 2);
+            });
+
+            // 添加一些包含浮点数的初始数据作为示例
+            // addRow([1200.5, 800.75, 10.5, 10.5, 18.2, 4]);
+            // addRow([1500, 900.2, 15, 15, 18.25, 6]);
+
+        });
+    </script>
+
+</body>
+</html>

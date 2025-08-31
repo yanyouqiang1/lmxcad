@@ -5,6 +5,11 @@ import ezdxf
 
 
 def draw_single(a, b, c, d, h, n):
+    # 调整顶点个数
+    if c==0:
+        n=n+1
+    if d==0:
+        n=n+1
     """Draws a single shape with specified parameters and y-offset."""
     points = []
 
@@ -12,10 +17,14 @@ def draw_single(a, b, c, d, h, n):
     angleB = math.pi / 2 - angleA
 
     A = (0, math.sin(angleA) * d)
-    points.append(A)
+    if d!=0:
+        points.append(A)
+
+
 
     B = (math.cos(angleA) * d, 0)
-    points.append(B)
+    if d!=0:
+        points.append(B)
 
     C = ()
     for i in range(n):
@@ -76,28 +85,22 @@ def draw_multiple(data, output_dir="dxf"):
 # Example usage with multiple sets of parameters:
 data = [
   [
-    176.47,
-    250,
-    280,
-    50,
-    280,
-    5
-  ],
-  [
-    176.47,
-    250,
-    50,
-    50,
-    280,
-    5
-  ],
-  [
-    176.47,
-    240,
+    196,
+    219,
+    30,
     0,
-    50,
-    300,
-    9
+    250,
+    10
+  ],
+  [
+    179.3,
+    235,
+    30,
+    30,
+    240,
+    5
   ]
 ]
+
+
 draw_multiple(data)

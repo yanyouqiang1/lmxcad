@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数化数据录入 (分步向导模式)</title>
+    <style>
+        /* --- 全局与布局 --- */
+        :root {
+            --primary-color: #4a90e2;
+            --primary-hover-color: #357abd;
+            --secondary-color: #f4f7f6;
+            --border-color: #e0e0e0;
+            --text-color: #333;
+            --bg-color: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --step-inactive: #e9ecef;
+            --step-active: #4a90e2;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--secondary-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1400px;
+        }
+
+        .panel {
+            background-color: var(--bg-color);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            transition: box-shadow 0.3s ease;
+        }
+
+        /* 布局比例 */
+        .table-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-container {
+            flex: 1;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* --- 步骤指示器样式 (Wizard Steps) --- */
+        .steps-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .steps-indicator::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--step-inactive);
+            z-index: 0;
+        }
+
+        .step-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--step-inactive);
+            color: #666;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s ease;
+            border: 2px solid var(--bg-color);
+        }
+
+        .step-dot.active {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+        }
+        
+        .step-dot.completed {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        /* --- 向导内容区域 --- */
+        .wizard-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+        
+        .step-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
+        }
+
+        textarea.input-area {
+            width: 100%;
+            flex: 1;
+            min-height: 200px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+
+        textarea.input-area:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        /* --- 底部控制栏 --- */
+        .wizard-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .btn-primary:hover { background-color: var(--primary-hover-color); }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover { background-color: #5a6268; }
+
+        .btn-reset {
+            background-color: transparent;
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+            flex: 0 0 auto;
+        }
+        .btn-reset:hover { background-color: #fff5f5; }
+
+        /* --- 表格区域样式 --- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .data-table th, .data-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: center;
+        }
+        .data-table thead th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .data-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+
+        #output {
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            min-height: 50px;
+        }
+        
+        /* 状态展示 */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+            background-color: #e2e6ea;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 左侧：结果表格 -->
+        <div class="panel table-container">
+            <h2>已录入数据列表</h2>
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th>步高</th>
+                        <th>步宽</th>
+                        <th>右边多余</th>
+                        <th>左边多余</th>
+                        <th>板宽</th>
+                        <th>端点数</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- 数据行将在这里生成 -->
+                </tbody>
+            </table>
+            
+            <div style="margin-top: auto;">
+                <button class="btn btn-success" id="generateBtn" style="background-color: #28a745; color: white; width: 100%;">生成最终二维数组</button>
+                <div id="output-container" style="margin-top: 15px;">
+                    <h3>JSON 结果:</h3>
+                    <pre id="output"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：分步输入向导 -->
+        <div class="panel form-container">
+            <h2>添加新数据 (向导模式)</h2>
+            
+            <!-- 步骤圆点 -->
+            <div class="steps-indicator" id="stepsIndicator">
+                <!-- JS生成: 1, 2, 3, 4, 5, 6 -->
+            </div>
+
+            <div class="wizard-content">
+                <div class="step-title">
+                    <span id="currentStepName">步骤 1: 步高</span>
+                    <span id="rowCountBadge" class="status-badge" style="display:none">目标行数: 0</span>
+                </div>
+                
+                <div class="step-description" id="stepDesc">
+                    请粘贴“步高”这一列的数据。每行一个数值。
+                </div>
+
+                <textarea id="wizardInput" class="input-area" placeholder="例如：&#10;1200.5&#10;1500&#10;1200..."></textarea>
+                
+                <div class="wizard-footer">
+                    <button class="btn btn-reset" id="resetWizardBtn">重置</button>
+                    <button class="btn btn-secondary" id="prevBtn" disabled>上一步</button>
+                    <button class="btn btn-primary" id="nextBtn">下一步</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 配置 ---
+            const STEPS = [
+                { key: 'stepHeight', label: '步高', type: 'float', desc: '请输入【步高】列数据。这是第一列，行数将决定本次录入的总数据量。' },
+                { key: 'stepWidth',  label: '步宽', type: 'float', desc: '请输入【步宽】列数据。行数必须与第一步一致。' },
+                { key: 'marginRight',label: '右边多余', type: 'float', desc: '请输入【右边多余】列数据。' },
+                { key: 'marginLeft', label: '左边多余', type: 'float', desc: '请输入【左边多余】列数据。' },
+                { key: 'boardWidth', label: '板宽', type: 'float', desc: '请输入【板宽】列数据。' },
+                { key: 'endpoints',  label: '端点数', type: 'int',   desc: '请输入【端点数】。注意：必须是整数。' }
+            ];
+
+            // --- 状态变量 ---
+            let currentStepIndex = 0;
+            let collectedData = {}; // 存储每一步解析后的数组
+            let targetRowCount = 0; // 第一步确定的行数
+
+            // --- DOM 元素 ---
+            const stepsIndicator = document.getElementById('stepsIndicator');
+            const stepNameEl = document.getElementById('currentStepName');
+            const stepDescEl = document.getElementById('stepDesc');
+            const rowCountBadge = document.getElementById('rowCountBadge');
+            const inputArea = document.getElementById('wizardInput');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const resetBtn = document.getElementById('resetWizardBtn');
+            const tableBody = document.getElementById('tableBody');
+            const generateBtn = document.getElementById('generateBtn');
+            const outputArea = document.getElementById('output');
+
+            // --- 初始化 ---
+            initSteps();
+            updateUI();
+
+            // --- 核心逻辑函数 ---
+
+            function initSteps() {
+                stepsIndicator.innerHTML = '';
+                STEPS.forEach((step, index) => {
+                    const dot = document.createElement('div');
+                    dot.className = 'step-dot';
+                    dot.textContent = index + 1;
+                    stepsIndicator.appendChild(dot);
+                });
+            }
+
+            function updateUI() {
+                const config = STEPS[currentStepIndex];
+
+                // 1. 更新标题和描述
+                stepNameEl.textContent = `步骤 ${currentStepIndex + 1}: ${config.label}`;
+                stepDescEl.textContent = config.desc;
+
+                // 2. 更新输入框内容 (如果之前输入过，回显)
+                if (collectedData[config.key]) {
+                    inputArea.value = collectedData[config.key].join('\n');
+                } else {
+                    inputArea.value = '';
+                }
+                inputArea.focus();
+
+                // 3. 更新步骤圆点样式
+                const dots = stepsIndicator.querySelectorAll('.step-dot');
+                dots.forEach((dot, idx) => {
+                    dot.className = 'step-dot'; // reset
+                    if (idx === currentStepIndex) dot.classList.add('active');
+                    if (idx < currentStepIndex) dot.classList.add('completed');
+                });
+
+                // 4. 更新行数标记
+                if (currentStepIndex > 0) {
+                    rowCountBadge.style.display = 'inline-block';
+                    rowCountBadge.textContent = `目标行数: ${targetRowCount}`;
+                } else {
+                    rowCountBadge.style.display = 'none';
+                }
+
+                // 5. 按钮状态
+                prevBtn.disabled = (currentStepIndex === 0);
+                nextBtn.textContent = (currentStepIndex === STEPS.length - 1) ? '完成并添加到表格' : '下一步';
+            }
+
+            // 解析并验证当前输入
+            function parseAndValidate() {
+                const config = STEPS[currentStepIndex];
+                const rawText = inputArea.value;
+                const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+
+                // 1. 基础非空检查
+                if (lines.length === 0) {
+                    alert('输入不能为空，请输入至少一行数据。');
+                    return false;
+                }
+
+                // 2. 行数一致性检查
+                if (currentStepIndex === 0) {
+                    // 第一步决定目标行数
+                    targetRowCount = lines.length;
+                } else {
+                    if (lines.length !== targetRowCount) {
+                        alert(`行数错误！\n\n第一步设定了 ${targetRowCount} 行数据。\n当前输入了 ${lines.length} 行。\n\n请检查数据是否遗漏或多余。`);
+                        return false;
+                    }
+                }
+
+                // 3. 数据类型有效性检查
+                const parsedValues = [];
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const num = Number(line);
+
+                    if (isNaN(num) || line === '') {
+                        alert(`数据格式错误 (第 ${i + 1} 行)：\n"${line}" 不是有效的数字。`);
+                        return false;
+                    }
+
+                    if (config.type === 'int') {
+                        if (!Number.isInteger(num)) {
+                            alert(`数据类型错误 (第 ${i + 1} 行)：\n"${line}" 必须是整数 (端点数)。`);
+                            return false;
+                        }
+                        parsedValues.push(parseInt(num, 10));
+                    } else {
+                        parsedValues.push(num); // float
+                    }
+                }
+
+                // 4. 存储数据
+                collectedData[config.key] = parsedValues;
+                return true;
+            }
+
+            // 将收集好的列数据合并成行，添加到表格
+            function commitToTable() {
+                for (let i = 0; i < targetRowCount; i++) {
+                    const rowData = [
+                        collectedData.stepHeight[i],
+                        collectedData.stepWidth[i],
+                        collectedData.marginRight[i],
+                        collectedData.marginLeft[i],
+                        collectedData.boardWidth[i],
+                        collectedData.endpoints[i]
+                    ];
+                    addTableRow(rowData);
+                }
+            }
+
+            function addTableRow(dataArray) {
+                const tr = document.createElement('tr');
+                
+                // 数据单元格
+                dataArray.forEach((val, idx) => {
+                    const td = document.createElement('td');
+                    td.textContent = val;
+                    tr.appendChild(td);
+                });
+
+                // 操作单元格 (删除按钮)
+                const actionTd = document.createElement('td');
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '删除';
+                delBtn.style.cssText = "background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;";
+                delBtn.onclick = function() {
+                    if(confirm('确定删除此行？')) tr.remove();
+                };
+                actionTd.appendChild(delBtn);
+                tr.appendChild(actionTd);
+
+                tableBody.appendChild(tr);
+            }
+
+            function resetWizard() {
+                currentStepIndex = 0;
+                collectedData = {};
+                targetRowCount = 0;
+                updateUI();
+            }
+
+            // --- 事件监听 ---
+
+            nextBtn.addEventListener('click', () => {
+                if (!parseAndValidate()) return;
+
+                if (currentStepIndex < STEPS.length - 1) {
+                    // 进入下一步
+                    currentStepIndex++;
+                    updateUI();
+                } else {
+                    // 最后一步，完成
+                    commitToTable();
+                    alert(`成功添加了 ${targetRowCount} 行数据！`);
+                    resetWizard();
+                }
+            });
+
+            prevBtn.addEventListener('click', () => {
+                if (currentStepIndex > 0) {
+                    // 保存当前输入草稿（不做严格校验，为了用户体验）
+                    // 但简单保存一下文本即可，或者重新解析，这里选择暂存解析结果如果可能
+                    // 为了简化，回退时只单纯回退索引，数据已经在 collectedData 里了
+                    currentStepIndex--;
+                    updateUI();
+                }
+            });
+
+            resetBtn.addEventListener('click', () => {
+                if (confirm('确定要重置当前正在输入的数据吗？所有未保存的步骤将丢失。')) {
+                    resetWizard();
+                }
+            });
+
+            // 生成最终JSON (保持原有逻辑)
+            generateBtn.addEventListener('click', () => {
+                const rows = tableBody.querySelectorAll('tr');
+                if (rows.length === 0) {
+                    outputArea.textContent = "表格为空。";
+                    return;
+                }
+                const result = [];
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    const rowData = [];
+                    // 前6列是数据
+                    for(let i=0; i<6; i++) {
+                        const val = parseFloat(cells[i].textContent);
+                        rowData.push(val); // 端点数在输入时已确保是int，float解析也能得到整数值
+                    }
+                    result.push(rowData);
+                });
+                outputArea.textContent = JSON.stringify(result, null, 2);
+            });
+            
+            // 表格单元格点击编辑功能 (保持原有逻辑)
+            tableBody.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.tagName === 'TD' && !target.querySelector('button') && !target.querySelector('input')) {
+                     const originalText = target.textContent;
+                     const input = document.createElement('input');
+                     input.type = 'number';
+                     input.value = originalText;
+                     input.step = "any";
+                     input.style.width = "100%";
+                     
+                     target.textContent = '';
+                     target.appendChild(input);
+                     input.focus();
+                     
+                     const save = () => {
+                         const val = parseFloat(input.value);
+                         if(isNaN(val)) target.textContent = originalText;
+                         else target.textContent = val; // 简化处理，未做严格int校验，假设用户知道
+                     };
+                     
+                     input.addEventListener('blur', save);
+                     input.addEventListener('keydown', (ev) => {
+                         if(ev.key === 'Enter') save();
+                     });
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>
